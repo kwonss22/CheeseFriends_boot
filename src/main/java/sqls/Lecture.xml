@@ -20,6 +20,7 @@
 	 		AND content LIKE CONCAT("%", #{search}, "%")
 	 	</if>
 	</if>
+		ORDER BY regdate DESC
 		LIMIT #{start}, 10
 
 </select>
@@ -33,13 +34,13 @@
 
 <!-- 강의 글쓰기 -->
 <insert id="writeLecture" parameterType="mul.cam.a.dto.LectureDto">
-	INSERT INTO lecture(subject, title, writer, content, regdate)
-	VALUES(#{subject}, #{title}, #{writer}, #{content}, now())
+	INSERT INTO lecture(subject, title, writer, content, filename, newfilename, regdate)
+	VALUES(#{subject}, #{title}, #{writer}, #{content}, #{filename}, #{newfilename}, now())
 </insert>
 
 <!-- 강의 자료 상세 -->
 <select id="getLecture" parameterType="Integer" resultType="mul.cam.a.dto.LectureDto">
-	SELECT seq, subject, title, writer, content, regdate
+	SELECT seq, subject, title, writer, content, regdate, filename
 	FROM lecture
 	WHERE seq=#{seq}
 </select>

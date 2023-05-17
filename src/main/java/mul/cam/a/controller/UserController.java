@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.json.JSONObject;
@@ -15,11 +16,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import mul.cam.a.dto.EduInfoDto;
 import mul.cam.a.dto.EducationDto;
 import mul.cam.a.dto.GradeDto;
 import mul.cam.a.dto.LearningDto;
@@ -34,6 +37,10 @@ import mul.cam.a.dto.TaskDto;
 import mul.cam.a.dto.TestEduDto;
 import mul.cam.a.dto.UserDto;
 import mul.cam.a.dto.UserparentsDto;
+import mul.cam.a.service.EduInfoService;
+import mul.cam.a.service.LearningService;
+import mul.cam.a.service.LectureService;
+import mul.cam.a.service.TaskService;
 import mul.cam.a.service.UserService;
 import mul.cam.a.util.naver2;
 
@@ -42,6 +49,14 @@ public class UserController {
 
 	@Autowired
 	UserService service;
+	@Autowired
+	LectureService lecservice;
+	@Autowired
+	TaskService taskservice;
+	@Autowired
+	EduInfoService eduservice;
+	@Autowired
+	LearningService learnservice;
 	
 	@PostMapping(value = "idcheck")
 	public String idcheck(String id) {
@@ -131,22 +146,39 @@ public class UserController {
 	}
 	
 	
-	@PostMapping(value = "fileUpload")
-	public String fileUpload(@RequestParam("uploadFile")MultipartFile uploadFile, 
-								HttpServletRequest req, LectureDto dto, LearningDto bbs, TaskDto tto) {		
+	@PostMapping(value = "fileUpload")	
+	public String fileUpload(@RequestParam("uploadFile")MultipartFile uploadFile, LectureDto dto, LearningDto bbs, HttpServletRequest req,
+			TaskDto tts, EduInfoDto edu) {	
 		System.out.println("UserController fileUpload " + new Date());
+		System.out.println(bbs.toString());
+		System.out.println(dto.toString());
 		
-		String uploadpath = req.getServletContext().getRealPath("/upload");
+		String uploadpath = req.getServletContext().getRealPath("/mailfile");
 		
 		String filename = uploadFile.getOriginalFilename();
 		String filepath = uploadpath + "/" + filename;		
 		System.out.println(filepath);
-		
+				
 		try {
+			
 			BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(filepath)));
 			os.write(uploadFile.getBytes());
 			os.close();
 			
+			 bbs.setFilename(filename);
+
+			 dto.setFilename(filename);
+			 
+			 tts.setFilename(filename);
+			 
+			 edu.setFilename(filename);
+			 
+			 System.out.println(dto.toString());
+			 lecservice.writeLecture(dto);
+			 taskservice.writeTask(tts);
+			 eduservice.writeEduInfo(edu);
+			 learnservice.writeLearning(bbs);			
+		
 		} catch (Exception e) {			
 			e.printStackTrace();
 			return "fail";
@@ -251,6 +283,25 @@ public class UserController {
 			
 		return "NO";
 	}
+	
+	@PostMapping(value = "addusereducheck")
+	public String addusereducheck(TestEduDto dto) {
+		System.out.println("UserController addusereducheck() " + new Date());
+		System.out.println(dto.toString());
+		
+		EducationDto dtocheck = service.addusereducheck(dto);
+		
+		if(dtocheck != null) {
+			System.out.println("dtocheck : notnull");
+			return "NO";
+		}else {
+			System.out.println("dtocheck : null");
+			service.adduseredu(dto);
+			return "YES";
+		}
+		
+	}
+	
 	
 	@PostMapping(value = "idsearch")
 	public UserDto idsearch(UserDto dto) {
@@ -514,6 +565,14 @@ public class UserController {
 		
 		boolean is = service.changeapproved(dto);
 		boolean isS = service.makeapproved(dto);
+		
+		GradeDto student = service.subStudentList(dto);
+		student.setStudentId(dto.getId());
+		
+		System.out.println(student.toString());
+		
+		boolean gradeInsert = service.setStudentGrade(student);
+		
 		if(isS == true) {
 			return "YES";
 		}
@@ -529,13 +588,22 @@ public class UserController {
 		
 		System.out.println(dto.toString());
 		
-		boolean is = service.changequited(dto);
-		boolean isS = service.deletestudent(dto);
-		if(isS == true) {
+		service.changequited(dto);
+		service.deletestudent(dto);
+		
+		String id = dto.getId();
+		
+		List<MysubjectDto> list = service.breakcheck(id);
+		System.out.println(list.size());
+		System.out.println(list.toString());
+		
+		if(list.size() <= 0) {
+			System.out.println("useredu delete 작동");
 			return "YES";
+		} else {
+			return "NO";
 		}
-			
-		return "NO";
+
 	}
 	
 		// 소셜 로그인
@@ -585,5 +653,99 @@ public class UserController {
 		return result;
 	}
 	
+	// 회원탈퇴
+	@GetMapping(value = "breakoutuser")
+	public String breakoutuser(String id, String auth){
+		System.out.println("UserController breakoutuser() " + new Date());
+		
+		System.out.println("auth : " + auth);
+		
+		// 학생
+		if(auth.equals("student")) {
+			List<MysubjectDto> list = service.breakcheck(id);
+			System.out.println(list.size());
+			System.out.println(list.toString());
+			
+			if(list.size() <= 0) {
+				
+				service.breakoutuser(id);
+				service.breakoutuseredu(id);
+				service.breakouttempusersubject(id);
+				service.breakoutstudentuserparents(id);
+			
+				return "YES";
+			
+			}else {
+				return "수강학습남음";
+			}
+			
+		// 학부모
+		}else if(auth.equals("parents")) {
+			service.breakoutuser(id);
+			service.breakoutparentsuserparents(id);
+			
+			return "YES";
+		
+		// 교사
+		}else if(auth.equals("teacher")) {
+			List<MysubjectDto> list = service.breakchecksubject(id);
+			System.out.println(list.size());
+			System.out.println(list.toString());
+			
+			if(list.size() <= 0) {
+				
+				service.breakoutuser(id);
+				service.breakoutuseredu(id);
+			
+				return "YES";
+			
+			}else {
+				return "수업학습남음";
+			}
+		}
+		
+		return "NO";
+		
+	}
 	
+	// 해당 번호로 가입된 계정이 있는지 체크
+	@PostMapping(value = "phonecheck")
+	public String phonecheck(String phone) {
+		System.out.println("UserController phonecheck() " + new Date());
+		
+		System.out.println("phone: " + phone);
+		
+		boolean isS = service.phonecheck(phone);
+		if(isS == true) {
+			return "NO";
+		}
+		
+		return "YES";
+	}
+	
+
+	@PostMapping(value = "stuselect")
+	public MysubjectDto stuselect(String subcode){
+		System.out.println("UserController eduselect() " + new Date());
+		
+		System.out.println("subcode: " + subcode);
+		
+		MysubjectDto dto = service.stuselect(subcode);
+			
+		return dto;
+	}
+
+	@PostMapping(value = "deleteuseredu")
+	public String deleteuseredu(EducationDto dto) {
+		System.out.println("UserController deleteuseredu() " + new Date());
+		
+		System.out.println(dto.toString());
+		
+		service.deleteuseredu(dto);
+		
+		return "";
+
+	}
+
+
 }

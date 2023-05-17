@@ -76,6 +76,13 @@
 	values(#{id}, #{educode})
 </insert>
 
+<select id="addusereducheck" parameterType="mul.cam.a.dto.TestEduDto" resultType="mul.cam.a.dto.EducationDto">
+	select *
+	from useredu
+	where user_id=#{id}
+	and edu_code=#{educode}
+</select>
+
 <select id="idsearch" parameterType="mul.cam.a.dto.UserDto" resultType="mul.cam.a.dto.UserDto">
 	SELECT ID, regidate
 	FROM USER
@@ -290,5 +297,91 @@
 	where joinid=#{joinid}
 	and jointype=#{jointype}
 </select>
+
+<!-- 회원탈퇴 학생 -->
+<select id="breakcheck" parameterType="String" resultType="mul.cam.a.dto.MysubjectDto">
+	select *
+	from usersubject
+	where user_id=#{id}
+</select>
+
+<delete id="breakoutuser" parameterType="String">
+	delete from user
+	where id=#{id}
+</delete>
+
+<delete id="breakoutuseredu" parameterType="String">
+	delete from useredu
+	where user_id=#{id}
+</delete>
+
+<delete id="breakouttempusersubject" parameterType="String">
+	delete from tempusersubject
+	where id=#{id}
+</delete>
+
+<delete id="breakoutstudentuserparents" parameterType="String">
+	delete from userparents
+	where studentid=#{id}
+</delete>
+
+<!-- 학부모 -->
+<delete id="breakoutparentsuserparents" parameterType="String">
+	delete from userparents
+	where parentsid=#{id}
+</delete>
+
+<!-- 교사 -->
+<!-- 담당과목 잔여 체크 -->
+<select id="breakchecksubject" parameterType="String" resultType="mul.cam.a.dto.MysubjectDto">
+	select *
+	from subject
+	where educator_name=#{id}
+</select>
+
+<!-- 해당 번호로 가입된 계정이 있는지 체크 -->
+<select id="phonecheck" parameterType="String" resultType="String">
+	SELECT ID
+	FROM USER
+	WHERE phone=#{phone}
+</select>
+
+
+<!-- 학생 마이 페이지 - 과목 select -->
+<select id="stuselect" parameterType="mul.cam.a.dto.MysubjectDto" resultType="mul.cam.a.dto.MysubjectDto">
+	select sub_code, sub_name 
+	from subject s 
+	where educator_name = #{id}
+	and edu_code = #{educode};
+</select>
+
+
+<!-- 수강생 수강 신청 승인 시 grade 입력 -->
+<insert id="setStudentGrade" parameterType="mul.cam.a.dto.GradeDto">
+	insert into grade(sub_code, edu_code, sub_name, class_grade, student_id, student_grade, student_ranks, sub_total)
+	values(#{subCode}, #{eduCode}, #{subName}, #{classGrade}, #{studentId}, 0, 0, 0)
+</insert>
+
+<!-- 과목을 듣는 학생 데이터 -->
+<select id="subStudentList" parameterType="mul.cam.a.dto.MysubjectDto" resultType="mul.cam.a.dto.GradeDto">
+	SELECT  S.SUB_CODE, S.EDU_CODE, 
+			S.SUB_NAME, S.CLASS_GRADE,
+	        T.ID
+	FROM
+	SUBJECT S INNER JOIN tempusersubject T
+		ON S.SUB_CODE = T.SUBCODE
+	WHERE S.EDUCATOR_NAME=#{educatorname} AND T.SUBCODE=#{subcode} AND T.ID=#{id};
+</select>
+
+<!-- 유저 남은 과목 있는지 체크 -->
+<!-- breakcheck 실행 -->
+
+<!-- 유저 남은 과목 없을시 삭제 -->
+<delete id="deleteuseredu" parameterType="mul.cam.a.dto.EducationDto">
+	delete from useredu
+	where user_id=#{id}
+	and edu_code=#{eduCode}
+</delete>
+
 
 </mapper>
